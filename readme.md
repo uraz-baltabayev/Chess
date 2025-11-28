@@ -8,7 +8,7 @@ chess_c++/
 │   ├── ChessPiece.h
 │   ├── Game.cpp
 │   ├── Game.h
-│   └── resources/          ← Create this folder inside src/
+│   └── resources/         
 │       ├── wp.png
 │       ├── wr.png
 │       ├── wn.png
