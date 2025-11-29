@@ -141,9 +141,18 @@ bool ChessPiece::isValidQueenMove(int toRow, int toCol, const std::shared_ptr<Ch
     return isPathClear(toRow, toCol, board);
 }
 
+// ========== ONLY CHANGE THIS METHOD ==========
+// CHANGES: Allow king to move two squares horizontally for castling
+// WHY: Castling requires the king to move two squares toward the rook
 bool ChessPiece::isValidKingMove(int toRow, int toCol) const {
     int rowDiff = std::abs(toRow - row_);
     int colDiff = std::abs(toCol - col_);
+    
+    // ADDED: Allow king to move two squares horizontally for castling
+    // The ChessBoard class will validate if it's actually a valid castling situation
+    if (rowDiff == 0 && colDiff == 2) {
+        return true; // Potential castling (validated by ChessBoard)
+    }
     
     // King moves one square in any direction
     return rowDiff <= 1 && colDiff <= 1;

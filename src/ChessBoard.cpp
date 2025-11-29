@@ -6,8 +6,13 @@
 // ========== CONSTRUCTOR - UPDATED ==========
 // CHANGES: Added initialization of enPassantTargetRow_ and enPassantTargetCol_ to -1
 // WHY: Need to track which square is vulnerable to en passant capture
+// ADDED: Castling tracking variables initialization
 ChessBoard::ChessBoard() : currentPlayer_(PieceColor::WHITE), selectedRow_(-1), selectedCol_(-1), 
-                          hasSelected_(false), enPassantTargetRow_(-1), enPassantTargetCol_(-1) {
+                          hasSelected_(false), enPassantTargetRow_(-1), enPassantTargetCol_(-1),
+                          // ADDED: Castling initialization
+                          whiteKingMoved_(false), blackKingMoved_(false),
+                          whiteRookKingSideMoved_(false), whiteRookQueenSideMoved_(false),
+                          blackRookKingSideMoved_(false), blackRookQueenSideMoved_(false) {
     // Initialize board with nullptrs
     for (int i = 0; i < 8; ++i) {
         for (int j = 0; j < 8; ++j) {
@@ -132,56 +137,99 @@ std::shared_ptr<ChessPiece> ChessBoard::getPiece(int row, int col) const {
     return board_[row][col];
 }
 
-// ========== movePiece METHOD - MAJOR UPDATE ==========
-// CHANGES: Added complete en passant logic
-// WHY: En passant requires special handling during move execution
+// ========== movePiece METHOD - CORRECTED ==========
+// FIXED: Proper turn switching for both castling and regular moves
 bool ChessBoard::movePiece(int fromRow, int fromCol, int toRow, int toCol) {
     auto piece = board_[fromRow][fromCol];
     if (!piece || piece->getColor() != currentPlayer_) return false;
-    
-    if (!piece->isValidMove(toRow, toCol, board_)) return false;
-    
-    // ========== EN PASSANT CAPTURE LOGIC ==========
-    // CHANGES: Added detection and execution of en passant captures
-    // HOW IT WORKS:
-    // - Check if moving pawn diagonally to empty square
-    // - Verify target is the en passant vulnerable square
-    // - Remove the captured pawn (which is behind the target square)
-    if (piece->getType() == PieceType::PAWN && 
-        fromCol != toCol &&                    // Moving diagonally
-        !board_[toRow][toCol]) {               // But no piece on target square
-        // Check if this is an en passant capture
-        if (toRow == enPassantTargetRow_ && toCol == enPassantTargetCol_) {
-            // Remove the captured pawn (which is behind the destination square)
-            int capturedPawnRow = (currentPlayer_ == PieceColor::WHITE) ? toRow + 1 : toRow - 1;
-            if (capturedPawnRow >= 0 && capturedPawnRow < 8) {
-                board_[capturedPawnRow][toCol] = nullptr;
-                std::cout << "En passant capture!" << std::endl;
+
+    // Get valid moves first to check if castling is possible
+    auto validMoves = getValidMoves(fromRow, fromCol);
+    bool isValidMove = false;
+    for (const auto& move : validMoves) {
+        if (move.first == toRow && move.second == toCol) {
+            isValidMove = true;
+            break;
+        }
+    }
+    if (!isValidMove) return false;
+
+    bool isCastlingMove = false;
+
+    // CHECK FOR CASTLING FIRST
+    if (piece->getType() == PieceType::KING && std::abs(toCol - fromCol) == 2) {
+        // This is a castling move
+        isCastlingMove = true;
+        if (toCol > fromCol) {
+            // Kingside castling
+            performCastleKingSide(currentPlayer_);
+            std::cout << "Kingside castling!" << std::endl;
+        } else {
+            // Queenside castling
+            performCastleQueenSide(currentPlayer_);
+            std::cout << "Queenside castling!" << std::endl;
+        }
+        
+        // Update king moved status
+        if (currentPlayer_ == PieceColor::WHITE) {
+            whiteKingMoved_ = true;
+        } else {
+            blackKingMoved_ = true;
+        }
+        
+        clearEnPassantTarget();
+    } else {
+        // ========== REGULAR MOVE (NON-CASTLING) ==========
+        
+        // ========== EN PASSANT CAPTURE LOGIC ==========
+        if (piece->getType() == PieceType::PAWN && 
+            fromCol != toCol &&                    
+            !board_[toRow][toCol]) {               
+            if (toRow == enPassantTargetRow_ && toCol == enPassantTargetCol_) {
+                int capturedPawnRow = fromRow;
+                int capturedPawnCol = toCol;
+                if (capturedPawnRow >= 0 && capturedPawnRow < 8 && capturedPawnCol >= 0 && capturedPawnCol < 8) {
+                    board_[capturedPawnRow][capturedPawnCol] = nullptr;
+                    std::cout << "En passant capture! Removed pawn at " << capturedPawnRow << "," << capturedPawnCol << std::endl;
+                }
             }
+        }
+
+        // Track rook and king movement for castling
+        if (piece->getType() == PieceType::KING) {
+            if (currentPlayer_ == PieceColor::WHITE) {
+                whiteKingMoved_ = true;
+            } else {
+                blackKingMoved_ = true;
+            }
+        }
+        
+        // Track rook movement
+        if (piece->getType() == PieceType::ROOK) {
+            if (fromRow == 0 && fromCol == 0) blackRookQueenSideMoved_ = true;
+            if (fromRow == 0 && fromCol == 7) blackRookKingSideMoved_ = true;
+            if (fromRow == 7 && fromCol == 0) whiteRookQueenSideMoved_ = true;
+            if (fromRow == 7 && fromCol == 7) whiteRookKingSideMoved_ = true;
+        }
+        
+        // Make the move for non-castling moves
+        board_[toRow][toCol] = piece;
+        board_[fromRow][fromCol] = nullptr;
+        piece->setPosition(toRow, toCol);
+        piece->setMoved(true);
+        
+        // ========== EN PASSANT TARGET SETTING ==========
+        if (piece->getType() == PieceType::PAWN && std::abs(toRow - fromRow) == 2) {
+            int enPassantRow = (currentPlayer_ == PieceColor::WHITE) ? toRow + 1 : toRow - 1;
+            setEnPassantTarget(enPassantRow, toCol);
+            std::cout << "En passant target set at: " << enPassantRow << ", " << toCol << std::endl;
+        } else {
+            clearEnPassantTarget();
         }
     }
     
-    // Make the move
-    board_[toRow][toCol] = piece;
-    board_[fromRow][fromCol] = nullptr;
-    piece->setPosition(toRow, toCol);
-    piece->setMoved(true);
-    
-    // ========== EN PASSANT TARGET SETTING ==========
-    // CHANGES: Added logic to set/clear en passant target
-    // HOW IT WORKS:
-    // - When pawn moves 2 squares: set target to square behind it
-    // - For other moves: clear any existing target
-    // - Target is the square where opponent can capture en passant
-    if (piece->getType() == PieceType::PAWN && std::abs(toRow - fromRow) == 2) {
-        // Pawn moved two squares - set en passant target
-        int enPassantRow = (currentPlayer_ == PieceColor::WHITE) ? toRow + 1 : toRow - 1;
-        setEnPassantTarget(enPassantRow, toCol);
-        std::cout << "En passant target set at: " << enPassantRow << ", " << toCol << std::endl;
-    } else {
-        // Other move - clear en passant target
-        clearEnPassantTarget();
-    }
+    // FIXED: Switch player for ALL successful moves (both castling and regular)
+    switchPlayer();
     
     return true;
 }
@@ -348,6 +396,8 @@ void ChessBoard::drawValidMoves(sf::RenderWindow& window) const {
     }
 }
 
+// ========== handleClick METHOD - CORRECTED ==========
+// FIXED: Removed switchPlayer() call to prevent double switching
 void ChessBoard::handleClick(int x, int y) {
     int col = (x - BOARD_OFFSET_X) / SQUARE_SIZE;
     int row = (y - BOARD_OFFSET_Y) / SQUARE_SIZE;
@@ -361,7 +411,7 @@ void ChessBoard::handleClick(int x, int y) {
             } else if (isCheck(currentPlayer_)) {
                 std::cout << "Check!" << std::endl;
             }
-            switchPlayer();
+            // REMOVED: switchPlayer(); - Now handled in movePiece() for all moves
         }
         hasSelected_ = false;
     } else {
@@ -377,27 +427,53 @@ void ChessBoard::handleClick(int x, int y) {
 // ========== getValidMoves METHOD - UPDATED ==========
 // CHANGES: Added en passant validation for pawn moves
 // WHY: Need to filter which diagonal pawn moves are actually valid en passant captures
+// ADDED: Castling moves for kings
 std::vector<std::pair<int, int>> ChessBoard::getValidMoves(int row, int col) const {
     std::vector<std::pair<int, int>> moves;
     auto piece = board_[row][col];
     if (!piece) return moves;
-    
-    for (int toRow = 0; toRow < 8; ++toRow) {
-        for (int toCol = 0; toCol < 8; ++toCol) {
-            if (piece->isValidMove(toRow, toCol, board_)) {
-                // ========== EN PASSANT VALIDATION ==========
-                // CHANGES: Added special handling for pawn diagonal moves to empty squares
-                // HOW IT WORKS:
-                // - Pawns can move diagonally only to capture OR for en passant
-                // - Only allow diagonal moves to empty squares if it's the en passant target
-                if (piece->getType() == PieceType::PAWN && 
-                    col != toCol &&                    // Diagonal move
-                    !board_[toRow][toCol]) {           // But no piece on target
-                    // This is a potential en passant move
-                    if (toRow == enPassantTargetRow_ && toCol == enPassantTargetCol_) {
+
+    // ADDED: For kings, add castling moves if available
+    if (piece->getType() == PieceType::KING) {
+        // Add normal king moves
+        for (int toRow = 0; toRow < 8; ++toRow) {
+            for (int toCol = 0; toCol < 8; ++toCol) {
+                if (piece->isValidMove(toRow, toCol, board_)) {
+                    moves.emplace_back(toRow, toCol);
+                }
+            }
+        }
+        
+        // ADD CASTLING MOVES
+        if (canCastleKingSide(piece->getColor())) {
+            int kingRow = (piece->getColor() == PieceColor::WHITE) ? 7 : 0;
+            moves.emplace_back(kingRow, 6); // Kingside castling target
+        }
+        if (canCastleQueenSide(piece->getColor())) {
+            int kingRow = (piece->getColor() == PieceColor::WHITE) ? 7 : 0;
+            moves.emplace_back(kingRow, 2); // Queenside castling target
+        }
+    }
+    // For pawns, handle en passant (existing code)
+    else if (piece->getType() == PieceType::PAWN) {
+        for (int toRow = 0; toRow < 8; ++toRow) {
+            for (int toCol = 0; toCol < 8; ++toCol) {
+                if (piece->isValidMove(toRow, toCol, board_)) {
+                    if (col != toCol && !board_[toRow][toCol]) {
+                        if (toRow == enPassantTargetRow_ && toCol == enPassantTargetCol_) {
+                            moves.emplace_back(toRow, toCol);
+                        }
+                    } else {
                         moves.emplace_back(toRow, toCol);
                     }
-                } else {
+                }
+            }
+        }
+    } else {
+        // For other pieces, use normal validation
+        for (int toRow = 0; toRow < 8; ++toRow) {
+            for (int toCol = 0; toCol < 8; ++toCol) {
+                if (piece->isValidMove(toRow, toCol, board_)) {
                     moves.emplace_back(toRow, toCol);
                 }
             }
@@ -405,6 +481,129 @@ std::vector<std::pair<int, int>> ChessBoard::getValidMoves(int row, int col) con
     }
     
     return moves;
+}
+
+// ADDED: Castling validation and execution methods
+
+bool ChessBoard::canCastleKingSide(PieceColor color) const {
+    int kingRow = (color == PieceColor::WHITE) ? 7 : 0;
+    
+    // Check if king has moved
+    if ((color == PieceColor::WHITE && whiteKingMoved_) ||
+        (color == PieceColor::BLACK && blackKingMoved_)) {
+        return false;
+    }
+    
+    // Check if kingside rook has moved
+    if ((color == PieceColor::WHITE && whiteRookKingSideMoved_) ||
+        (color == PieceColor::BLACK && blackRookKingSideMoved_)) {
+        return false;
+    }
+    
+    // Check if squares between king and rook are empty
+    if (board_[kingRow][5] || board_[kingRow][6]) {
+        return false;
+    }
+    
+    // Check if king is in check
+    if (isCheck(color)) {
+        return false;
+    }
+    
+    // Check if king passes through or lands on attacked squares
+    if (isSquareUnderAttack(kingRow, 4, color) ||  // King's original position
+        isSquareUnderAttack(kingRow, 5, color) ||  // Square king passes through
+        isSquareUnderAttack(kingRow, 6, color)) {  // Square king lands on
+        return false;
+    }
+    
+    return true;
+}
+
+bool ChessBoard::canCastleQueenSide(PieceColor color) const {
+    int kingRow = (color == PieceColor::WHITE) ? 7 : 0;
+    
+    // Check if king has moved
+    if ((color == PieceColor::WHITE && whiteKingMoved_) ||
+        (color == PieceColor::BLACK && blackKingMoved_)) {
+        return false;
+    }
+    
+    // Check if queenside rook has moved
+    if ((color == PieceColor::WHITE && whiteRookQueenSideMoved_) ||
+        (color == PieceColor::BLACK && blackRookQueenSideMoved_)) {
+        return false;
+    }
+    
+    // Check if squares between king and rook are empty
+    if (board_[kingRow][1] || board_[kingRow][2] || board_[kingRow][3]) {
+        return false;
+    }
+    
+    // Check if king is in check
+    if (isCheck(color)) {
+        return false;
+    }
+    
+    // Check if king passes through or lands on attacked squares
+    if (isSquareUnderAttack(kingRow, 4, color) ||  // King's original position
+        isSquareUnderAttack(kingRow, 3, color) ||  // Square king passes through
+        isSquareUnderAttack(kingRow, 2, color)) {  // Square king lands on
+        return false;
+    }
+    
+    return true;
+}
+
+void ChessBoard::performCastleKingSide(PieceColor color) {
+    int kingRow = (color == PieceColor::WHITE) ? 7 : 0;
+    
+    // Move king
+    auto king = board_[kingRow][4];
+    board_[kingRow][4] = nullptr;
+    board_[kingRow][6] = king;
+    king->setPosition(kingRow, 6);
+    king->setMoved(true);
+    
+    // Move rook
+    auto rook = board_[kingRow][7];
+    board_[kingRow][7] = nullptr;
+    board_[kingRow][5] = rook;
+    rook->setPosition(kingRow, 5);
+    rook->setMoved(true);
+}
+
+void ChessBoard::performCastleQueenSide(PieceColor color) {
+    int kingRow = (color == PieceColor::WHITE) ? 7 : 0;
+    
+    // Move king
+    auto king = board_[kingRow][4];
+    board_[kingRow][4] = nullptr;
+    board_[kingRow][2] = king;
+    king->setPosition(kingRow, 2);
+    king->setMoved(true);
+    
+    // Move rook
+    auto rook = board_[kingRow][0];
+    board_[kingRow][0] = nullptr;
+    board_[kingRow][3] = rook;
+    rook->setPosition(kingRow, 3);
+    rook->setMoved(true);
+}
+
+bool ChessBoard::isSquareUnderAttack(int row, int col, PieceColor defenderColor) const {
+    // Check if any opponent piece can attack this square
+    for (int i = 0; i < 8; ++i) {
+        for (int j = 0; j < 8; ++j) {
+            auto piece = board_[i][j];
+            if (piece && piece->getColor() != defenderColor) {
+                if (piece->isValidMove(row, col, board_)) {
+                    return true;
+                }
+            }
+        }
+    }
+    return false;
 }
 
 sf::Color ChessBoard::getSquareColor(int row, int col) const {

@@ -5,7 +5,7 @@
 #include <SFML/Graphics.hpp>
 #include <memory>
 #include <unordered_map>
-#include <vector>  // ADD THIS - for std::vector
+#include <vector>
 
 class ChessBoard {
 public:
@@ -24,7 +24,7 @@ public:
     void handleClick(int x, int y);
     std::vector<std::pair<int, int>> getValidMoves(int row, int col) const;
 
-    // ADD THESE EN PASSANT METHODS:
+    // En passant methods
     void setEnPassantTarget(int row, int col) { enPassantTargetRow_ = row; enPassantTargetCol_ = col; }
     std::pair<int, int> getEnPassantTarget() const { return {enPassantTargetRow_, enPassantTargetCol_}; }
     void clearEnPassantTarget() { enPassantTargetRow_ = -1; enPassantTargetCol_ = -1; }
@@ -42,9 +42,17 @@ private:
     std::unordered_map<std::string, sf::Texture> textures_;
     sf::Font font_;
 
-    // ADD EN PASSANT TRACKING VARIABLES:
-    int enPassantTargetRow_;  // Row of the square behind the pawn that moved 2 spaces
-    int enPassantTargetCol_;  // Column of the square behind the pawn that moved 2 spaces
+    // En passant tracking
+    int enPassantTargetRow_;
+    int enPassantTargetCol_;
+
+    // ADDED: Castling tracking
+    bool whiteKingMoved_;
+    bool blackKingMoved_;
+    bool whiteRookKingSideMoved_;
+    bool whiteRookQueenSideMoved_;
+    bool blackRookKingSideMoved_;
+    bool blackRookQueenSideMoved_;
 
     bool loadTexture(const std::string& name, const std::string& filename);
     void drawBoard(sf::RenderWindow& window) const;
@@ -52,6 +60,13 @@ private:
     void drawSelection(sf::RenderWindow& window) const;
     void drawValidMoves(sf::RenderWindow& window) const;
     sf::Color getSquareColor(int row, int col) const;
+
+    // ADDED: Castling methods
+    bool canCastleKingSide(PieceColor color) const;
+    bool canCastleQueenSide(PieceColor color) const;
+    void performCastleKingSide(PieceColor color);
+    void performCastleQueenSide(PieceColor color);
+    bool isSquareUnderAttack(int row, int col, PieceColor defenderColor) const;
 };
 
 #endif
