@@ -267,8 +267,8 @@ void ChessBoard::drawPieces(sf::RenderWindow& window) const {
                     sf::Sprite sprite(it->second);
                     
                     // Simple positioning - FIXED for SFML3
-                    float posX = BOARD_OFFSET_X + col * SQUARE_SIZE + 10;
-                    float posY = BOARD_OFFSET_Y + row * SQUARE_SIZE + 10;
+                    float posX = BOARD_OFFSET_X + col * SQUARE_SIZE;
+                    float posY = BOARD_OFFSET_Y + row * SQUARE_SIZE;
                     
                     sprite.setPosition(sf::Vector2f(posX, posY));  // FIXED: Use Vector2f
                     window.draw(sprite);
