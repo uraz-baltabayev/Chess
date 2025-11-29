@@ -3,7 +3,11 @@
 #include <fstream>
 #include <vector>
 
-ChessBoard::ChessBoard() : currentPlayer_(PieceColor::WHITE), selectedRow_(-1), selectedCol_(-1), hasSelected_(false) {
+// ========== CONSTRUCTOR - UPDATED ==========
+// CHANGES: Added initialization of enPassantTargetRow_ and enPassantTargetCol_ to -1
+// WHY: Need to track which square is vulnerable to en passant capture
+ChessBoard::ChessBoard() : currentPlayer_(PieceColor::WHITE), selectedRow_(-1), selectedCol_(-1), 
+                          hasSelected_(false), enPassantTargetRow_(-1), enPassantTargetCol_(-1) {
     // Initialize board with nullptrs
     for (int i = 0; i < 8; ++i) {
         for (int j = 0; j < 8; ++j) {
@@ -128,17 +132,56 @@ std::shared_ptr<ChessPiece> ChessBoard::getPiece(int row, int col) const {
     return board_[row][col];
 }
 
+// ========== movePiece METHOD - MAJOR UPDATE ==========
+// CHANGES: Added complete en passant logic
+// WHY: En passant requires special handling during move execution
 bool ChessBoard::movePiece(int fromRow, int fromCol, int toRow, int toCol) {
     auto piece = board_[fromRow][fromCol];
     if (!piece || piece->getColor() != currentPlayer_) return false;
     
     if (!piece->isValidMove(toRow, toCol, board_)) return false;
     
+    // ========== EN PASSANT CAPTURE LOGIC ==========
+    // CHANGES: Added detection and execution of en passant captures
+    // HOW IT WORKS:
+    // - Check if moving pawn diagonally to empty square
+    // - Verify target is the en passant vulnerable square
+    // - Remove the captured pawn (which is behind the target square)
+    if (piece->getType() == PieceType::PAWN && 
+        fromCol != toCol &&                    // Moving diagonally
+        !board_[toRow][toCol]) {               // But no piece on target square
+        // Check if this is an en passant capture
+        if (toRow == enPassantTargetRow_ && toCol == enPassantTargetCol_) {
+            // Remove the captured pawn (which is behind the destination square)
+            int capturedPawnRow = (currentPlayer_ == PieceColor::WHITE) ? toRow + 1 : toRow - 1;
+            if (capturedPawnRow >= 0 && capturedPawnRow < 8) {
+                board_[capturedPawnRow][toCol] = nullptr;
+                std::cout << "En passant capture!" << std::endl;
+            }
+        }
+    }
+    
     // Make the move
     board_[toRow][toCol] = piece;
     board_[fromRow][fromCol] = nullptr;
     piece->setPosition(toRow, toCol);
     piece->setMoved(true);
+    
+    // ========== EN PASSANT TARGET SETTING ==========
+    // CHANGES: Added logic to set/clear en passant target
+    // HOW IT WORKS:
+    // - When pawn moves 2 squares: set target to square behind it
+    // - For other moves: clear any existing target
+    // - Target is the square where opponent can capture en passant
+    if (piece->getType() == PieceType::PAWN && std::abs(toRow - fromRow) == 2) {
+        // Pawn moved two squares - set en passant target
+        int enPassantRow = (currentPlayer_ == PieceColor::WHITE) ? toRow + 1 : toRow - 1;
+        setEnPassantTarget(enPassantRow, toCol);
+        std::cout << "En passant target set at: " << enPassantRow << ", " << toCol << std::endl;
+    } else {
+        // Other move - clear en passant target
+        clearEnPassantTarget();
+    }
     
     return true;
 }
@@ -331,6 +374,9 @@ void ChessBoard::handleClick(int x, int y) {
     }
 }
 
+// ========== getValidMoves METHOD - UPDATED ==========
+// CHANGES: Added en passant validation for pawn moves
+// WHY: Need to filter which diagonal pawn moves are actually valid en passant captures
 std::vector<std::pair<int, int>> ChessBoard::getValidMoves(int row, int col) const {
     std::vector<std::pair<int, int>> moves;
     auto piece = board_[row][col];
@@ -339,7 +385,21 @@ std::vector<std::pair<int, int>> ChessBoard::getValidMoves(int row, int col) con
     for (int toRow = 0; toRow < 8; ++toRow) {
         for (int toCol = 0; toCol < 8; ++toCol) {
             if (piece->isValidMove(toRow, toCol, board_)) {
-                moves.emplace_back(toRow, toCol);
+                // ========== EN PASSANT VALIDATION ==========
+                // CHANGES: Added special handling for pawn diagonal moves to empty squares
+                // HOW IT WORKS:
+                // - Pawns can move diagonally only to capture OR for en passant
+                // - Only allow diagonal moves to empty squares if it's the en passant target
+                if (piece->getType() == PieceType::PAWN && 
+                    col != toCol &&                    // Diagonal move
+                    !board_[toRow][toCol]) {           // But no piece on target
+                    // This is a potential en passant move
+                    if (toRow == enPassantTargetRow_ && toCol == enPassantTargetCol_) {
+                        moves.emplace_back(toRow, toCol);
+                    }
+                } else {
+                    moves.emplace_back(toRow, toCol);
+                }
             }
         }
     }

@@ -5,6 +5,7 @@
 #include <SFML/Graphics.hpp>
 #include <memory>
 #include <unordered_map>
+#include <vector>  // ADD THIS - for std::vector
 
 class ChessBoard {
 public:
@@ -23,6 +24,11 @@ public:
     void handleClick(int x, int y);
     std::vector<std::pair<int, int>> getValidMoves(int row, int col) const;
 
+    // ADD THESE EN PASSANT METHODS:
+    void setEnPassantTarget(int row, int col) { enPassantTargetRow_ = row; enPassantTargetCol_ = col; }
+    std::pair<int, int> getEnPassantTarget() const { return {enPassantTargetRow_, enPassantTargetCol_}; }
+    void clearEnPassantTarget() { enPassantTargetRow_ = -1; enPassantTargetCol_ = -1; }
+
 private:
     static const int SQUARE_SIZE = 80;
     static const int BOARD_OFFSET_X = 50;
@@ -34,7 +40,11 @@ private:
     int selectedCol_;
     bool hasSelected_;
     std::unordered_map<std::string, sf::Texture> textures_;
-    sf::Font font_;  // Add this line
+    sf::Font font_;
+
+    // ADD EN PASSANT TRACKING VARIABLES:
+    int enPassantTargetRow_;  // Row of the square behind the pawn that moved 2 spaces
+    int enPassantTargetCol_;  // Column of the square behind the pawn that moved 2 spaces
 
     bool loadTexture(const std::string& name, const std::string& filename);
     void drawBoard(sf::RenderWindow& window) const;

@@ -78,10 +78,16 @@ bool ChessPiece::isValidPawnMove(int toRow, int toCol, const std::shared_ptr<Che
             }
         }
     }
-    // Capture move (diagonal)
+    // Capture move (diagonal) - INCLUDING EN PASSANT
     else if (std::abs(colDiff) == 1 && rowDiff == direction) {
+        // Regular capture OR en passant (en passant validation happens in ChessBoard)
         if (targetPiece && targetPiece->getColor() != color_) {
-            return true;
+            return true;  // Regular capture
+        }
+        // For en passant: allow diagonal move to empty square
+        // ChessBoard will validate if it's actually an en passant situation
+        if (!targetPiece) {
+            return true;  // Potential en passant (validated by ChessBoard)
         }
     }
     
