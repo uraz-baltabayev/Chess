@@ -1,0 +1,61 @@
+# Build / Output
+build/
+bin/
+*.exe
+*.out
+*.app
+*.o
+*.obj
+*.dll
+*.so
+*.dylib
+*.a
+*.lib
+
+# CMake
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+*.vcxproj*
+*.sln
+*.user
+*.ninja
+
+# Debug / IDE
+*.log
+*.tmp
+*.temp
+*.cache
+
+# macOS
+.DS_Store
+
+# Visual Studio
+.vs/
+*.VC.db
+*.VC.opendb
+
+# JetBrains
+.idea/
+*.iml
+out/
+
+# VS Code
+.vscode/
+
+# Code::Blocks
+*.depend
+*.layout
+
+# Other OS files
+Thumbs.db
+ehthumbs.db
+
+# Compiled headers
+*.gch
+*.pch
+
+# Misc
+*.bak
+*~
