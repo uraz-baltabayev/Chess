@@ -1,37 +1,3 @@
-<<<<<<< HEAD
-chess_c++/
-├── CMakeLists.txt
-├── src/
-│   ├── main.cpp
-│   ├── ChessBoard.cpp
-│   ├── ChessBoard.h
-│   ├── ChessPiece.cpp
-│   ├── ChessPiece.h
-│   ├── Game.cpp
-│   ├── Game.h
-│   └── resources/         
-│       ├── wp.png
-│       ├── wr.png
-│       ├── wn.png
-│       ├── wb.png
-│       ├── wq.png
-│       ├── wk.png
-│       ├── bp.png
-│       ├── br.png
-│       ├── bn.png
-│       ├── bb.png
-│       ├── bq.png
-│       └── bk.png
-└── build/
-
-
----------------------------
-chess c++ compile a program
-mkdir build
-cd build
-cmake ..
-make
-=======
 # Chess (C++)
 
 A simple **2‑player Chess game** written in **C++**, featuring basic game logic and graphics.  
@@ -104,4 +70,3 @@ Chess/
 
 📜 License
 This project is open‑source. Feel free to study, modify, and share.
->>>>>>> aafabb3 (updated)
